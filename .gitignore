@@ -1,0 +1,10 @@
+# Internal development notes (not the public product surface)
+PLAN.md
+STATUS.md
+*.plan.md
+/notes/
+/internal/
+
+# Bus event bodies. Code and contract may be public; chat text is not.
+bus/*.jsonl
+!bus/.gitkeep
