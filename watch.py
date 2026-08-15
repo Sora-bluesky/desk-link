@@ -37,6 +37,12 @@ FIRST_SEEN_MAX_AGE_SEC = 2 * 3600
 TEXT_MAX = 200
 OFFSET_READ_WINDOW = 512 * 1024
 
+ROUTING_VALUES = {
+    "to": ("grok-build", "codex"),
+    "model": ("grok-4.6", "gpt-5.6-sol"),
+    "effort": ("xhigh", "ultra"),
+}
+
 SEATS = (
     ("cursor", os.path.join(".cursor", "projects", "*", "agent-transcripts", "*", "*.jsonl")),
     ("claude", os.path.join(".claude", "projects", "*", "*.jsonl")),
@@ -319,7 +325,31 @@ def read_new_lines(path: str, start_pos: int) -> Tuple[List[Tuple[int, str]], in
     return out, pos
 
 
-def make_event(seat: str, src: str, obj: Dict[str, Any]) -> Dict[str, str]:
+def routing_fields(
+    to: Optional[str] = None,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
+) -> Dict[str, str]:
+    fields: Dict[str, str] = {}
+    for name, value in (("to", to), ("model", model), ("effort", effort)):
+        if value is None or value == "":
+            continue
+        if value not in ROUTING_VALUES[name]:
+            allowed = "|".join(ROUTING_VALUES[name])
+            raise ValueError(f"invalid {name}: expected {allowed}")
+        fields[name] = value
+    return fields
+
+
+def make_event(
+    seat: str,
+    src: str,
+    obj: Dict[str, Any],
+    *,
+    to: Optional[str] = None,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
+) -> Dict[str, str]:
     text = first_text(obj)
     kind = classify(obj, text)
     label = role_label(obj)
@@ -328,7 +358,7 @@ def make_event(seat: str, src: str, obj: Dict[str, Any]) -> Dict[str, str]:
     else:
         summary = f"[{label}]"
         kind = "meta"
-    return {
+    event = {
         "id": str(uuid.uuid4()),
         "ts": record_ts(obj),
         "seat": seat,
@@ -337,6 +367,8 @@ def make_event(seat: str, src: str, obj: Dict[str, Any]) -> Dict[str, str]:
         "text": redact(summary),
         "src": src,
     }
+    event.update(routing_fields(to=to, model=model, effort=effort))
+    return event
 
 
 def scan_file(

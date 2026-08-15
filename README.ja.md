@@ -49,8 +49,16 @@ bus/ack.jsonl      配送結果
 イベント最小形（ローカル契約。公式 API ではない）:
 
 ```json
-{"id":"...","ts":"2026-08-15T08:52:00+09:00","seat":"cursor|claude|codex|grok_build|bot","dir":"in|out","kind":"utterance|meta","text":"<要約>","src":"<path-or-cli>"}
+{"id":"...","ts":"2026-08-15T08:52:00+09:00","seat":"cursor|claude|codex|grok_build|bot","dir":"in|out","kind":"utterance|meta|design|adversarial|independent|implement","text":"<要約>","src":"<path-or-cli>"}
 ```
+
+ルーティング用メタデータは、同じイベントオブジェクトに任意で追加する。使用するキーだけを含め、未使用のキーには null、空文字、プレースホルダー値を入れず省略する。
+
+```json
+{"to":"grok-build|codex","model":"grok-4.6|gpt-5.6-sol","effort":"xhigh|ultra"}
+```
+
+Phase 0 の座席監視は常に `dir:"in"` とし、`kind:"utterance"` または `kind:"meta"` だけを出力する。ルーティング用メタデータは推測で付与しない。Cursor の座席行で、完了した `independent` 作業を表してはならない。`kind:"implement"` のイベントは実装専用とし、レビュー作業を含めない。
 
 ## セキュリティ
 
@@ -60,4 +68,4 @@ bus/ack.jsonl      配送結果
 
 ## 現状
 
-公開ツリーは製品面だけ。Phase 0 の watcher はまだ無い。
+公開ツリーは製品面だけ。Phase 0 では読み取り専用の座席監視 `watch.py` を提供している。Phase 1 の書き込み機能は未実装。

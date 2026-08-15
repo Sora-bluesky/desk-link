@@ -49,8 +49,16 @@ bus/ack.jsonl      delivery result
 Minimum event shape (local contract, not an official API):
 
 ```json
-{"id":"...","ts":"2026-08-15T08:52:00+09:00","seat":"cursor|claude|codex|grok_build|bot","dir":"in|out","kind":"utterance|meta","text":"<summary>","src":"<path-or-cli>"}
+{"id":"...","ts":"2026-08-15T08:52:00+09:00","seat":"cursor|claude|codex|grok_build|bot","dir":"in|out","kind":"utterance|meta|design|adversarial|independent|implement","text":"<summary>","src":"<path-or-cli>"}
 ```
+
+Routing metadata is optional and belongs to the same event object. Include each key only when it is used; omit unused keys instead of writing null, empty, or placeholder values.
+
+```json
+{"to":"grok-build|codex","model":"grok-4.6|gpt-5.6-sol","effort":"xhigh|ultra"}
+```
+
+Phase 0 seat tails always emit `dir:"in"` with `kind:"utterance"` or `kind:"meta"`, and do not invent routing metadata. Cursor seat lines never claim completed `independent` work. Events with `kind:"implement"` are implementation-only and must not include review work.
 
 ## Security
 
@@ -60,4 +68,4 @@ Minimum event shape (local contract, not an official API):
 
 ## Status
 
-The public tree is the product surface only. The Phase 0 watcher is not written yet.
+The public tree is the product surface only. Phase 0 provides the read-only `watch.py` seat watcher. Phase 1 writers are not implemented.
