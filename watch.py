@@ -25,10 +25,11 @@ import glob
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 
 JST = timezone(timedelta(hours=9))
 POLL_SEC = 1.5
@@ -38,7 +39,7 @@ TEXT_MAX = 200
 OFFSET_READ_WINDOW = 512 * 1024
 
 ROUTING_VALUES = {
-    "to": ("grok-build", "codex"),
+    "to": ("cursor", "claude", "codex", "grok-build"),
     "model": ("grok-4.6", "gpt-5.6-sol"),
     "effort": ("xhigh", "ultra"),
 }
@@ -80,6 +81,34 @@ REDACT_PATTERNS = (
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_cli_safely(
+    operation: Callable[[], int],
+    *,
+    storage_error: str,
+    operation_error: str,
+    known_error_type: Optional[Type[BaseException]] = None,
+    known_error_formatter: Optional[Callable[[BaseException], str]] = None,
+) -> int:
+    """Run one CLI entry point without exposing raw exception diagnostics."""
+
+    try:
+        return operation()
+    except Exception as exc:
+        if known_error_type is not None and isinstance(exc, known_error_type):
+            error = known_error_formatter(exc) if known_error_formatter is not None else operation_error
+        elif isinstance(exc, OSError):
+            error = storage_error
+        else:
+            error = operation_error
+        if not isinstance(error, str) or not error.strip():
+            error = operation_error
+        print(
+            json.dumps({"status": "error", "error": error}, ensure_ascii=False, separators=(",", ":")),
+            file=sys.stderr,
+        )
+        return 2
 
 
 def now_iso() -> str:
@@ -423,11 +452,15 @@ def scan_file(
 def append_inbox(inbox_path: str, events: List[Dict[str, str]]) -> None:
     if not events:
         return
-    with open(inbox_path, "a", encoding="utf-8") as fh:
-        for ev in events:
-            fh.write(json.dumps(ev, ensure_ascii=False, separators=(",", ":")))
-            fh.write("\n")
+    payload = "".join(
+        json.dumps(ev, ensure_ascii=False, separators=(",", ":")) + "\n" for ev in events
+    )
+    with open(inbox_path, "a", encoding="utf-8", newline="\n") as fh:
+        # Append one complete payload so the watcher and dispatcher cannot split
+        # another writer's JSON object from its terminating newline.
+        fh.write(payload)
         fh.flush()
+        os.fsync(fh.fileno())
 
 
 def one_scan(bus: str, offsets_path: str, seen_emit: set) -> List[Dict[str, str]]:
@@ -442,12 +475,7 @@ def one_scan(bus: str, offsets_path: str, seen_emit: set) -> List[Dict[str, str]
     return all_events
 
 
-def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="desk-link Phase 0 read-only seat watcher")
-    parser.add_argument("--once", action="store_true", help="single scan then exit")
-    parser.add_argument("--interval", type=float, default=POLL_SEC, help="poll seconds (default 1.5)")
-    args = parser.parse_args(argv)
-
+def _run_watcher(args: argparse.Namespace) -> int:
     bus = ensure_bus(SCRIPT_DIR)
     offsets_path = os.path.join(bus, ".offsets.json")
     seen_emit: set = set()
@@ -463,6 +491,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         if events:
             print(f"scan: new_events={len(events)}", flush=True)
         time.sleep(max(0.2, args.interval))
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="desk-link Phase 0 read-only seat watcher")
+    parser.add_argument("--once", action="store_true", help="single scan then exit")
+    parser.add_argument("--interval", type=float, default=POLL_SEC, help="poll seconds (default 1.5)")
+    args = parser.parse_args(argv)
+    return run_cli_safely(
+        lambda: _run_watcher(args),
+        storage_error="watch storage operation failed",
+        operation_error="watch operation failed",
+    )
 
 
 if __name__ == "__main__":

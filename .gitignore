@@ -9,5 +9,13 @@ STATUS.md
 bus/*.jsonl
 !bus/.gitkeep
 bus/.offsets.json
+bus/.offsets.json.tmp
+bus/.offsets.json.tmp.*
+bus/.delivery-state.json
+bus/.delivery-state.json.tmp
+bus/.delivery-state.json.tmp.*
+bus/.delivery.lock
+bus/.execution.lock
+bus/.outbox-append.lock
 __pycache__/
 *.pyc
