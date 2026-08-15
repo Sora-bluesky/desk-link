@@ -8,3 +8,6 @@ STATUS.md
 # Bus event bodies. Code and contract may be public; chat text is not.
 bus/*.jsonl
 !bus/.gitkeep
+bus/.offsets.json
+__pycache__/
+*.pyc
