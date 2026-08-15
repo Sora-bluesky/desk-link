@@ -2,70 +2,21 @@
 
 # desk-link
 
-`desk-link` is a **local seat bus** on the mothership Windows PC. It lets Grok Bot see conversations from Cursor, Claude Code, Codex, and Grok Build, and reply only through official paths that already exist.
-
-It is not a second winsmux operator. It does not scrape pixels, steal cookies or tokens, or replace Hermes wiki.
-
-## Why it exists
-
-Each seat already writes its own session files. There is no official MCP that unifies every seat chat into one stream. As of 2026-08-15, Cursor has no live Bot ↔ Composer duplex API. The closest official surfaces are MCP (an agent calls tools) and Cloud Agent launch/reply (async, not the IDE chat).
-
-`desk-link` is the thin local adapter: watch those files, put summaries on one bus, and leave the originals where they are.
+`desk-link` brings conversation updates from multiple AI coding tools together in one place. It reduces the need to check each conversation separately.
 
 ## What it does
 
-- Watches seat JSONL transcripts (read-only in Phase 0).
-- Appends one summary event per utterance to a local `bus/inbox.jsonl`.
-- Lets Grok Bot read that bus and, in Phase 1, write back through official CLIs or a small Cursor MCP.
-- Keeps real chat bodies off the public git tree.
+- Collects new conversation updates from supported tools.
+- Creates short summaries for quick review.
+- Leaves the original conversations unchanged.
 
-## What it does not do
+## Supported tools
 
-- Insert bubbles into Cursor Composer.
-- Open `state.vscdb`.
-- Touch winsmux implementation or GO.
-- Commit transcripts, tokens, or cookies.
-
-## Seats
-
-| Seat | Phase 0 (read) | Phase 1 (write) |
-| --- | --- | --- |
-| Cursor | `agent-transcripts` JSONL | small MCP, or async Cloud Agent reply |
-| Claude Code | `projects` JSONL | `claude -p` / `--resume` / `--continue` |
-| Codex | `rollout-*.jsonl` | `codex exec` / `resume` |
-| Grok Build | `chat_history.jsonl` | `grok -p` / `--continue` |
-| Grok Bot | this bus | SendToAgent / Hermes inbox |
-
-## Local bus
-
-One event per line. Summaries only. Originals stay in each seat file.
-
-```
-bus/inbox.jsonl    seats → bot
-bus/outbox.jsonl   bot → seats
-bus/ack.jsonl      delivery result
-```
-
-Minimum event shape (local contract, not an official API):
-
-```json
-{"id":"...","ts":"2026-08-15T08:52:00+09:00","seat":"cursor|claude|codex|grok_build|bot","dir":"in|out","kind":"utterance|meta|design|adversarial|independent|implement","text":"<summary>","src":"<path-or-cli>"}
-```
-
-Routing metadata is optional and belongs to the same event object. Include each key only when it is used; omit unused keys instead of writing null, empty, or placeholder values.
-
-```json
-{"to":"grok-build|codex","model":"grok-4.6|gpt-5.6-sol","effort":"xhigh|ultra"}
-```
-
-Phase 0 seat tails always emit `dir:"in"` with `kind:"utterance"` or `kind:"meta"`, and do not invent routing metadata. Cursor seat lines never claim completed `independent` work. Events with `kind:"implement"` are implementation-only and must not include review work.
-
-## Security
-
-- Do not commit `bus/*.jsonl` bodies or seat transcripts.
-- Do not read `mcp.json` secrets, cookies, or tokens.
-- Internal plans (`PLAN.md`, `STATUS.md`, and similar notes) stay on the local machine and are gitignored.
+- Cursor
+- Claude Code
+- Codex
+- Grok Build
 
 ## Status
 
-The public tree is the product surface only. Phase 0 provides the read-only `watch.py` seat watcher. Phase 1 writers are not implemented.
+The current version is read-only.
